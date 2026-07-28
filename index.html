@@ -55,6 +55,11 @@
   .tabs{display:flex;gap:8px;margin-bottom:16px;}
   .tab{flex:1;text-align:center;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;border:1.5px solid var(--paper-dark);}
   .tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .answerDisplay{width:100%;min-height:48px;border:1.5px solid var(--paper-dark);border-radius:4px;background:var(--paper);padding:12px;font-family:'Space Mono',monospace;font-size:17px;margin-bottom:12px;letter-spacing:1px;word-break:break-all;}
+  .keyboard{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
+  .krow{display:flex;gap:4px;justify-content:center;}
+  .key{flex:1;max-width:32px;padding:11px 0;background:var(--ink);color:var(--paper);border:none;border-radius:4px;font-family:'Space Mono',monospace;font-size:13px;}
+  .key.wide{max-width:90px;flex:2;}
 </style>
 </head>
 <body>
@@ -88,11 +93,14 @@ let authMode = 'login';
 let studentData = null;
 let words = [], queue = [], current = null, score = {right:0,total:0};
 let timeLeft = SESSION_SECONDS, timerInterval = null;
+let typedAnswer = '';
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function tomorrowStr(){ const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); }
 function formatTime(s){ const m=Math.floor(s/60); const sec=s%60; return `${m}:${sec.toString().padStart(2,'0')}`; }
+function normalize(s){ return s.trim().toLowerCase().replace(/\s+/g,' '); }
 
+/* ---------- AUTH ---------- */
 function renderAuth(){
   signOutBtn.style.display = 'none';
   app.innerHTML = `
@@ -135,6 +143,7 @@ function doAuth(){
   }
 }
 
+/* ---------- STUDENT HOME ---------- */
 function loadStudentAndRenderHome(uid){
   db.collection('students').doc(uid).get().then(doc => {
     studentData = doc.data();
@@ -162,6 +171,7 @@ function renderStudentHome(){
   }
 }
 
+/* ---------- TEST SESSION ---------- */
 function startTestSession(stageNum){
   db.collection('stages').doc(String(stageNum)).get().then(doc => {
     const data = doc.data();
@@ -197,7 +207,35 @@ function tick(){
   const el = document.getElementById('timerDisplay');
   if(el) el.textContent = formatTime(timeLeft);
 }
-function normalize(s){ return s.trim().toLowerCase().replace(/\s+/g,' '); }
+
+/* ---------- ON-SCREEN QWERTY KEYBOARD ---------- */
+function buildKeyboardHTML(){
+  const rows = ['qwertyuiop','asdfghjkl','zxcvbnm'];
+  let html = '<div class="keyboard">';
+  rows.forEach(row => {
+    html += '<div class="krow">';
+    row.split('').forEach(ch => {
+      html += `<button type="button" class="key" data-k="${ch}">${ch}</button>`;
+    });
+    html += '</div>';
+  });
+  html += `<div class="krow">
+    <button type="button" class="key wide" id="keySpace">space</button>
+    <button type="button" class="key wide" id="keyBack">⌫</button>
+  </div></div>`;
+  return html;
+}
+function updateAnswerDisplay(){
+  const el = document.getElementById('answerDisplay');
+  if(el) el.textContent = typedAnswer.length ? typedAnswer : '\u00A0';
+}
+function attachKeyboardHandlers(){
+  document.querySelectorAll('.key[data-k]').forEach(btn => {
+    btn.onclick = () => { typedAnswer += btn.dataset.k; updateAnswerDisplay(); };
+  });
+  document.getElementById('keySpace').onclick = () => { typedAnswer += ' '; updateAnswerDisplay(); };
+  document.getElementById('keyBack').onclick = () => { typedAnswer = typedAnswer.slice(0,-1); updateAnswerDisplay(); };
+}
 
 function renderQuiz(){
   signOutBtn.style.display = 'none';
@@ -205,6 +243,7 @@ function renderQuiz(){
     if(queue.length === 0){ finishSession(); return; }
     current = queue.pop();
   }
+  typedAnswer = '';
   app.innerHTML = `
     <div class="card">
       <div class="stamp" id="stamp">ВЕРНО</div>
@@ -214,7 +253,8 @@ function renderQuiz(){
       </div>
       <div class="term">${current.term}</div>
       ${current.term2 ? `<div class="translit">${current.term2}</div>` : ''}
-      <input type="text" id="answer" placeholder="english word" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div class="answerDisplay" id="answerDisplay">&nbsp;</div>
+      ${buildKeyboardHTML()}
       <div class="row">
         <button class="primary" id="checkBtn">Проверить</button>
         <button class="ghost" id="nextBtn">Пропустить</button>
@@ -222,28 +262,25 @@ function renderQuiz(){
       <div class="feedback" id="feedback"></div>
     </div>
   `;
-  const input = document.getElementById('answer');
-  input.focus();
+  attachKeyboardHandlers();
   document.getElementById('checkBtn').onclick = checkAnswer;
   document.getElementById('nextBtn').onclick = nextWord;
-  input.addEventListener('keydown', e => { if(e.key === 'Enter') checkAnswer(); });
 }
 
 function checkAnswer(){
-  const input = document.getElementById('answer');
   const feedback = document.getElementById('feedback');
-  const val = normalize(input.value);
+  const val = normalize(typedAnswer);
   const correctAnswers = current.answer.split('/').map(normalize);
   score.total++;
+  document.querySelectorAll('.key').forEach(k => k.disabled = true);
+  document.getElementById('checkBtn').disabled = true;
   if(correctAnswers.includes(val) && val !== ''){
     score.right++;
     feedback.textContent = "Верно!"; feedback.className='feedback right';
     document.getElementById('stamp').classList.add('show');
-    input.disabled = true;
     setTimeout(nextWord, 600);
   } else {
     feedback.textContent = `Неверно. Ответ: ${current.answer}`; feedback.className='feedback wrong';
-    input.disabled = true;
     setTimeout(nextWord, 1200);
   }
 }
@@ -292,6 +329,7 @@ function renderResult(correct, total, newStage, nextAvail){
   document.getElementById('homeBtn').onclick = renderStudentHome;
 }
 
+/* ---------- ADMIN ---------- */
 function renderAdmin(){
   signOutBtn.style.display = 'inline-block';
   app.innerHTML = `
@@ -396,4 +434,4 @@ auth.onAuthStateChanged(user => {
 signOutBtn.onclick = () => auth.signOut();
 </script>
 </body>
-</html>
+  </html>
