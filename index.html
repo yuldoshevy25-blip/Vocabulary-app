@@ -56,7 +56,8 @@
   .keyboard{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
   .krow{display:flex;gap:4px;justify-content:center;}
   .key{flex:1;max-width:32px;padding:11px 0;background:var(--ink);color:var(--paper);border:none;border-radius:4px;font-family:'Space Mono',monospace;font-size:13px;}
-  .key.wide{max-width:90px;flex:2;}
+  .key.space{flex:4;max-width:170px;}
+  .key.back{flex:1;max-width:50px;}
 </style>
 </head>
 <body>
@@ -202,8 +203,8 @@ function buildKeyboardHTML(){
     html += '</div>';
   });
   html += `<div class="krow">
-    <button type="button" class="key wide" id="keySpace">space</button>
-    <button type="button" class="key wide" id="keyBack">⌫</button>
+    <button type="button" class="key space" id="keySpace">space</button>
+    <button type="button" class="key back" id="keyBack">⌫</button>
   </div></div>`;
   return html;
 }
@@ -238,8 +239,10 @@ function renderQuiz(){
       <div class="answerDisplay" id="answerDisplay">&nbsp;</div>
       ${buildKeyboardHTML()}
       <div class="row">
-        <button class="primary" id="checkBtn">Проверить</button>
+        <div class="row">
         <button class="ghost" id="nextBtn">Пропустить</button>
+        <button class="primary" id="checkBtn">Проверить</button>
+      </div>
       </div>
       <div class="feedback" id="feedback"></div>
     </div>
