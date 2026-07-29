@@ -231,7 +231,6 @@ function renderQuiz(){
   typedAnswer = '';
   app.innerHTML = `
     <div class="card">
-      <div class="stamp" id="stamp">ВЕРНО</div>
       <div class="eyebrow" style="display:flex;justify-content:space-between;">
         <span>${score.total+1} / ${words.length}</span>
         <span id="timerDisplay" style="color:var(--brass-dark);font-weight:700;">${formatTime(timeLeft)}</span>
@@ -245,31 +244,26 @@ function renderQuiz(){
         <button class="ghost" id="nextBtn">Пропустить</button>
         <button class="primary" id="checkBtn">Проверить</button>
       </div>
-      </div>
-      <div class="feedback" id="feedback"></div>
     </div>
   `;
   attachKeyboardHandlers();
   document.getElementById('checkBtn').onclick = checkAnswer;
-  document.getElementById('nextBtn').onclick = nextWord;
+  document.getElementById('nextBtn').onclick = skipWord;
 }
 
 function checkAnswer(){
-  const feedback = document.getElementById('feedback');
   const val = normalize(typedAnswer);
   const correctAnswers = current.answer.split('/').map(normalize);
+  const isCorrect = correctAnswers.includes(val) && val !== '';
+  results.push({term: current.term, term2: current.term2, userAnswer: typedAnswer, correctAnswer: current.answer, isCorrect});
   score.total++;
-  document.querySelectorAll('.key').forEach(k => k.disabled = true);
-  document.getElementById('checkBtn').disabled = true;
-  if(correctAnswers.includes(val) && val !== ''){
-    score.right++;
-    feedback.textContent = "Верно!"; feedback.className='feedback right';
-    document.getElementById('stamp').classList.add('show');
-    setTimeout(nextWord, 600);
-  } else {
-    feedback.textContent = `Неверно. Ответ: ${current.answer}`; feedback.className='feedback wrong';
-    setTimeout(nextWord, 1200);
-  }
+  if(isCorrect) score.right++;
+  nextWord();
+}
+function skipWord(){
+  results.push({term: current.term, term2: current.term2, userAnswer: '', correctAnswer: current.answer, isCorrect: false});
+  score.total++;
+  nextWord();
 }
 function nextWord(){
   if(queue.length === 0){ clearInterval(timerInterval); finishSession(); }
