@@ -432,4 +432,38 @@ function loadStageWords(){
   if(!stageNum) return;
   db.collection('stages').doc(stageNum).get().then(doc => {
     const list = (doc.exists && doc.data().words) ? doc.data().words : [];
-    let rows = `<div class="eyebrow">Слова 
+    let rows = `<div class="eyebrow">Слова этапа ${stageNum} (${list.length})</div>`;
+    list.forEach((w,i) => {
+      rows += `<div class="wordrow"><span>${w.term}${w.term2?' / '+w.term2:''} → <b>${w.answer}</b></span>
+        <button class="del" data-i="${i}">Удалить</button></div>`;
+    });
+    document.getElementById('stageWordList').innerHTML = rows;
+    document.querySelectorAll('.del').forEach(btn => {
+      btn.onclick = () => {
+        const wordToRemove = list[parseInt(btn.dataset.i)];
+        db.collection('stages').doc(stageNum).update({
+          words: firebase.firestore.FieldValue.arrayRemove(wordToRemove)
+        }).then(loadStageWords);
+      };
+    });
+  });
+}
+
+auth.onAuthStateChanged(user => {
+  clearInterval(timerInterval);
+  if(user){
+    if(user.email === ADMIN_EMAIL){
+      renderAdmin();
+    } else {
+      loadStudentAndRenderHome(user.uid);
+    }
+  } else {
+    studentData = null;
+    renderAuth();
+  }
+});
+
+signOutBtn.onclick = () => auth.signOut();
+</script>
+</body>
+</html>
