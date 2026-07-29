@@ -299,12 +299,24 @@ function renderResult(correct, total, newStage, nextAvail){
   else if(correct <= 47) statusMsg = `Вы перешли на следующий этап, но начнёте ${nextAvail}.`;
   else statusMsg = "Отличный результат! Вы сразу перешли на следующий этап.";
 
+  const rows = results.map(r => `
+    <div class="wordrow">
+      <span>${r.term}${r.term2?' / '+r.term2:''} — ваш ответ: <b style="color:${r.isCorrect?'var(--right)':'var(--wrong)'}">${r.userAnswer || '—'}</b>${r.isCorrect?'':` (правильно: ${r.correctAnswer})`}</span>
+    </div>
+  `).join('');
+
   app.innerHTML = `
     <div class="card">
       <div class="eyebrow">Результат</div>
       <div class="term" style="font-size:26px;">${correct} / ${total} правильно</div>
       <div class="msg" style="text-align:left;padding:0 0 14px;">${statusMsg}</div>
-      <button class="primary" id="homeBtn" style="width:100%;">На главную</button>
+    </div>
+    <div class="card" style="margin-top:16px;max-height:400px;overflow-y:auto;">
+      <div class="eyebrow">Подробности</div>
+      ${rows}
+    </div>
+    <div style="width:100%;max-width:420px;margin-top:16px;">
+      <button class="primary" id="homeBtn" style="width:100%;">Перейти на главную</button>
     </div>
   `;
   document.getElementById('homeBtn').onclick = renderStudentHome;
