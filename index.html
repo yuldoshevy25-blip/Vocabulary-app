@@ -91,6 +91,7 @@ let studentData = null;
 let words = [], queue = [], current = null, score = {right:0,total:0};
 let sessionEndTime = null, timeLeft = SESSION_SECONDS, timerInterval = null;
 let typedAnswer = '';
+let results = [];
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function tomorrowStr(){ const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); }
@@ -164,6 +165,7 @@ function startTestSession(stageNum){
       return;
     }
     score = {right:0, total:0};
+    results = [];
     current = null;
     queue = shuffle(words);
     sessionEndTime = Date.now() + SESSION_SECONDS * 1000;
