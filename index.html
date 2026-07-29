@@ -329,6 +329,15 @@ function renderAdmin(){
       <div id="studentList" class="msg">Загрузка...</div>
     </div>
     <div class="card" style="margin-top:16px;">
+    <div class="card" style="margin-top:16px;">
+      <div class="eyebrow">Перенести этап</div>
+      <label class="f">Откуда (старый номер)</label>
+      <input type="text" id="copyFrom" placeholder="например: level 1">
+      <label class="f">Куда (новый номер)</label>
+      <input type="text" id="copyTo" placeholder="например: 1">
+      <button class="primary" id="copyBtn" style="width:100%;">Перенести слова</button>
+      <div class="feedback" id="copyFeedback"></div>
+    </div>
       <div class="eyebrow">Добавить слово</div>
       <label class="f">Номер этапа</label>
       <input type="text" id="stageNum" placeholder="например: 1">
@@ -346,6 +355,7 @@ function renderAdmin(){
   loadStudentList();
   document.getElementById('createBtn').onclick = createStudentAccount;
   document.getElementById('addWordBtn').onclick = addWord;
+  document.getElementById('copyBtn').onclick = copyStage;
   document.getElementById('stageNum').addEventListener('change', loadStageWords);
 }
 
@@ -385,7 +395,22 @@ function createStudentAccount(){
       secondaryAuth.signOut().then(() => secondaryApp.delete());
     });
 }
-
+function copyStage(){
+  const from = document.getElementById('copyFrom').value.trim();
+  const to = document.getElementById('copyTo').value.trim();
+  const fb = document.getElementById('copyFeedback');
+  if(!from || !to){ fb.textContent = "Укажите оба номера"; fb.className='feedback wrong'; return; }
+  db.collection('stages').doc(from).get().then(doc => {
+    if(!doc.exists || !doc.data().words){
+      fb.textContent = "Исходный этап пуст или не найден"; fb.className='feedback wrong'; return;
+    }
+    return db.collection('stages').doc(to).set({words: doc.data().words}, {merge:true});
+  }).then(() => {
+    fb.textContent = "Перенесено!"; fb.className='feedback right';
+  }).catch(err => {
+    fb.textContent = err.message; fb.className='feedback wrong';
+  });
+}
 function loadStudentList(){
   db.collection('students').get().then(snap => {
     if(snap.empty){
