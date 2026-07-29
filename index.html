@@ -52,9 +52,6 @@
   .del{color:var(--wrong);background:none;border:none;font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;}
   label.f{display:block;font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-soft);margin:12px 0 4px;}
   label.f:first-child{margin-top:0;}
-  .tabs{display:flex;gap:8px;margin-bottom:16px;}
-  .tab{flex:1;text-align:center;padding:10px;border-radius:4px;font-size:13px;cursor:pointer;border:1.5px solid var(--paper-dark);}
-  .tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
   .answerDisplay{width:100%;min-height:48px;border:1.5px solid var(--paper-dark);border-radius:4px;background:var(--paper);padding:12px;font-family:'Space Mono',monospace;font-size:17px;margin-bottom:12px;letter-spacing:1px;word-break:break-all;}
   .keyboard{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
   .krow{display:flex;gap:4px;justify-content:center;}
@@ -89,10 +86,9 @@ const db = firebase.firestore();
 
 const app = document.getElementById('app');
 const signOutBtn = document.getElementById('signOutBtn');
-let authMode = 'login';
 let studentData = null;
 let words = [], queue = [], current = null, score = {right:0,total:0};
-let timeLeft = SESSION_SECONDS, timerInterval = null;
+let sessionEndTime = null, timeLeft = SESSION_SECONDS, timerInterval = null;
 let typedAnswer = '';
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -100,47 +96,31 @@ function tomorrowStr(){ const d=new Date(); d.setDate(d.getDate()+1); return d.t
 function formatTime(s){ const m=Math.floor(s/60); const sec=s%60; return `${m}:${sec.toString().padStart(2,'0')}`; }
 function normalize(s){ return s.trim().toLowerCase().replace(/\s+/g,' '); }
 
-/* ---------- AUTH ---------- */
+/* ---------- AUTH (только вход, регистрацию делает админ) ---------- */
 function renderAuth(){
   signOutBtn.style.display = 'none';
   app.innerHTML = `
     <div class="card">
-      <div class="tabs">
-        <div class="tab ${authMode==='login'?'active':''}" id="tabLogin">Вход</div>
-        <div class="tab ${authMode==='signup'?'active':''}" id="tabSignup">Регистрация</div>
-      </div>
+      <div class="eyebrow">Вход в аккаунт</div>
       <label class="f">Email</label>
       <input type="email" id="authEmail" placeholder="email@example.com">
       <label class="f">Пароль</label>
       <input type="password" id="authPass" placeholder="пароль">
-      <button class="primary" id="authGo" style="width:100%;">${authMode==='login'?'Войти':'Зарегистрироваться'}</button>
+      <button class="primary" id="authGo" style="width:100%;">Войти</button>
       <div class="feedback" id="authFeedback"></div>
     </div>
   `;
-  document.getElementById('tabLogin').onclick = ()=>{authMode='login';renderAuth();};
-  document.getElementById('tabSignup').onclick = ()=>{authMode='signup';renderAuth();};
-  document.getElementById('authGo').onclick = doAuth;
+  document.getElementById('authGo').onclick = doLogin;
 }
 
-function doAuth(){
+function doLogin(){
   const email = document.getElementById('authEmail').value.trim();
   const pass = document.getElementById('authPass').value;
   const fb = document.getElementById('authFeedback');
   fb.textContent = ''; fb.className='feedback';
   if(!email || !pass){ fb.textContent="Введите email и пароль"; fb.className='feedback wrong'; return; }
-
-  if(authMode === 'signup'){
-    auth.createUserWithEmailAndPassword(email, pass)
-      .then(cred => {
-        return db.collection('students').doc(cred.user.uid).set({
-          email: email, stage: 1, nextAvailable: null, history: []
-        });
-      })
-      .catch(err => { fb.textContent = err.message; fb.className='feedback wrong'; });
-  } else {
-    auth.signInWithEmailAndPassword(email, pass)
-      .catch(err => { fb.textContent = err.message; fb.className='feedback wrong'; });
-  }
+  auth.signInWithEmailAndPassword(email, pass)
+    .catch(err => { fb.textContent = err.message; fb.className='feedback wrong'; });
 }
 
 /* ---------- STUDENT HOME ---------- */
@@ -183,11 +163,12 @@ function startTestSession(stageNum){
       return;
     }
     score = {right:0, total:0};
-    timeLeft = SESSION_SECONDS;
     current = null;
     queue = shuffle(words);
+    sessionEndTime = Date.now() + SESSION_SECONDS * 1000;
+    timeLeft = SESSION_SECONDS;
     clearInterval(timerInterval);
-    timerInterval = setInterval(tick, 1000);
+    timerInterval = setInterval(tick, 500);
     renderQuiz();
   });
 }
@@ -197,13 +178,14 @@ function shuffle(arr){
   return a;
 }
 function tick(){
-  timeLeft--;
-  if(timeLeft <= 0){
+  const remaining = Math.round((sessionEndTime - Date.now()) / 1000);
+  if(remaining <= 0){
     timeLeft = 0;
     clearInterval(timerInterval);
     finishSession();
     return;
   }
+  timeLeft = remaining;
   const el = document.getElementById('timerDisplay');
   if(el) el.textContent = formatTime(timeLeft);
 }
@@ -334,6 +316,15 @@ function renderAdmin(){
   signOutBtn.style.display = 'inline-block';
   app.innerHTML = `
     <div class="card">
+      <div class="eyebrow">Создать ученика</div>
+      <label class="f">Email ученика</label>
+      <input type="email" id="newEmail" placeholder="ученик@example.com">
+      <label class="f">Пароль</label>
+      <input type="password" id="newPass" placeholder="пароль (мин. 6 символов)">
+      <button class="primary" id="createBtn" style="width:100%;">Создать</button>
+      <div class="feedback" id="createFeedback"></div>
+    </div>
+    <div class="card" style="margin-top:16px;">
       <div class="eyebrow">Ученики</div>
       <div id="studentList" class="msg">Загрузка...</div>
     </div>
@@ -353,8 +344,46 @@ function renderAdmin(){
     </div>
   `;
   loadStudentList();
+  document.getElementById('createBtn').onclick = createStudentAccount;
   document.getElementById('addWordBtn').onclick = addWord;
   document.getElementById('stageNum').addEventListener('change', loadStageWords);
+}
+
+/* Создаём ученика через отдельный (второй) экземпляр Firebase,
+   чтобы не выйти из аккаунта админа */
+function createStudentAccount(){
+  const email = document.getElementById('newEmail').value.trim();
+  const pass = document.getElementById('newPass').value;
+  const fb = document.getElementById('createFeedback');
+  fb.textContent = ''; fb.className = 'feedback';
+  if(!email || !pass){ fb.textContent = "Введите email и пароль"; fb.className='feedback wrong'; return; }
+
+  let secondaryApp;
+  try{
+    secondaryApp = firebase.initializeApp(firebaseConfig, "Secondary_" + Date.now());
+  }catch(e){
+    fb.textContent = "Ошибка инициализации"; fb.className='feedback wrong'; return;
+  }
+  const secondaryAuth = secondaryApp.auth();
+
+  secondaryAuth.createUserWithEmailAndPassword(email, pass)
+    .then(cred => {
+      return db.collection('students').doc(cred.user.uid).set({
+        email: email, stage: 1, nextAvailable: null, history: []
+      });
+    })
+    .then(() => {
+      fb.textContent = "Ученик создан!"; fb.className='feedback right';
+      document.getElementById('newEmail').value = '';
+      document.getElementById('newPass').value = '';
+      loadStudentList();
+    })
+    .catch(err => {
+      fb.textContent = err.message; fb.className='feedback wrong';
+    })
+    .finally(() => {
+      secondaryAuth.signOut().then(() => secondaryApp.delete());
+    });
 }
 
 function loadStudentList(){
@@ -375,6 +404,7 @@ function loadStudentList(){
   });
 }
 
+/* Безопасное добавление слова — arrayUnion не перезаписывает список */
 function addWord(){
   const stageNum = document.getElementById('stageNum').value.trim();
   const term = document.getElementById('fTerm').value.trim();
@@ -383,17 +413,17 @@ function addWord(){
   const fb = document.getElementById('addFeedback');
   if(!stageNum || !term || !answer){ fb.textContent="Заполните этап, слово и ответ"; fb.className='feedback wrong'; return; }
 
-  const ref = db.collection('stages').doc(stageNum);
-  ref.get().then(doc => {
-    const current = (doc.exists && doc.data().words) ? doc.data().words : [];
-    current.push({term, term2, answer});
-    return ref.set({words: current});
-  }).then(() => {
+  const newWord = {term, term2, answer};
+  db.collection('stages').doc(stageNum).set({
+    words: firebase.firestore.FieldValue.arrayUnion(newWord)
+  }, {merge: true}).then(() => {
     fb.textContent = "Добавлено!"; fb.className='feedback right';
     document.getElementById('fTerm').value='';
     document.getElementById('fTerm2').value='';
     document.getElementById('fAnswer').value='';
     loadStageWords();
+  }).catch(err => {
+    fb.textContent = err.message; fb.className='feedback wrong';
   });
 }
 
@@ -402,36 +432,4 @@ function loadStageWords(){
   if(!stageNum) return;
   db.collection('stages').doc(stageNum).get().then(doc => {
     const list = (doc.exists && doc.data().words) ? doc.data().words : [];
-    let rows = `<div class="eyebrow">Слова этапа ${stageNum} (${list.length})</div>`;
-    list.forEach((w,i) => {
-      rows += `<div class="wordrow"><span>${w.term}${w.term2?' / '+w.term2:''} → <b>${w.answer}</b></span>
-        <button class="del" data-i="${i}">Удалить</button></div>`;
-    });
-    document.getElementById('stageWordList').innerHTML = rows;
-    document.querySelectorAll('.del').forEach(btn => {
-      btn.onclick = () => {
-        list.splice(parseInt(btn.dataset.i), 1);
-        db.collection('stages').doc(stageNum).set({words: list}).then(loadStageWords);
-      };
-    });
-  });
-}
-
-auth.onAuthStateChanged(user => {
-  clearInterval(timerInterval);
-  if(user){
-    if(user.email === ADMIN_EMAIL){
-      renderAdmin();
-    } else {
-      loadStudentAndRenderHome(user.uid);
-    }
-  } else {
-    studentData = null;
-    renderAuth();
-  }
-});
-
-signOutBtn.onclick = () => auth.signOut();
-</script>
-</body>
-  </html>
+    let rows = `<div class="eyebrow">Слова 
