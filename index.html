@@ -97,6 +97,17 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 function tomorrowStr(){ const d=new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); }
 function formatTime(s){ const m=Math.floor(s/60); const sec=s%60; return `${m}:${sec.toString().padStart(2,'0')}`; }
 function normalize(s){ return s.trim().toLowerCase().replace(/\s+/g,' '); }
+  function transliterate(str){
+  const map = {а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'yo',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'ts',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya',ғ:'gh',қ:'q',ҳ:'h',ҷ:'j',ӣ:'i',ӯ:'u'};
+  return str.toLowerCase().split('').map(ch => map[ch] !== undefined ? map[ch] : ch).join('');
+}
+function nameToEmail(fullName){
+  let slug = transliterate(fullName.trim())
+    .replace(/[^a-z0-9]+/g, '.')
+    .replace(/^\.+|\.+$/g, '');
+  if(!slug) slug = 'user' + Date.now();
+  return slug + '@lugat.local';
+  }
 
 /* ---------- AUTH (только вход, регистрацию делает админ) ---------- */
 function renderAuth(){
