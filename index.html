@@ -384,8 +384,9 @@ function renderAdmin(){
 /* Создаём ученика через отдельный (второй) экземпляр Firebase,
    чтобы не выйти из аккаунта админа */
 function createStudentAccount(){
-  const email = document.getElementById('newEmail').value.trim();
-  const pass = document.getElementById('newPass').value;
+  const fullName = document.getElementById('newEmail').value.trim();
+    const email = nameToEmail(fullName);
+    const pass = document.getElementById('newPass').value;
   const fb = document.getElementById('createFeedback');
   fb.textContent = ''; fb.className = 'feedback';
   if(!email || !pass){ fb.textContent = "Введите email и пароль"; fb.className='feedback wrong'; return; }
@@ -401,7 +402,7 @@ function createStudentAccount(){
   secondaryAuth.createUserWithEmailAndPassword(email, pass)
     .then(cred => {
       return db.collection('students').doc(cred.user.uid).set({
-        email: email, stage: 1, nextAvailable: null, history: []
+        email: email, fullName: fullName, stage: 1, nextAvailable: null, history: []
       });
     })
     .then(() => {
