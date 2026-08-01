@@ -360,6 +360,14 @@ function renderAdmin(){
       <button class="primary" id="copyBtn" style="width:100%;">Перенести слова</button>
       <div class="feedback" id="copyFeedback"></div>
     </div>
+    <div class="card" style="margin-top:16px;">
+      <div class="eyebrow">Массовое добавление</div>
+      <div class="msg" style="text-align:left;padding:0 0 10px;font-size:12px;">Формат: слово | русский (необязательно) | английский — каждое слово с новой строки. Номер этапа берётся из поля ниже.</div>
+      <textarea id="bulkText" rows="8" style="width:100%;font-family:'Space Mono',monospace;font-size:13px;padding:12px;border:1.5px solid var(--paper-dark);border-radius:4px;background:var(--paper);color:var(--ink);" placeholder="китоб | книга | book
+уй | | house"></textarea>
+      <button class="primary" id="bulkAddBtn" style="width:100%;margin-top:10px;">Добавить все</button>
+      <div class="feedback" id="bulkFeedback"></div>
+    </div>
       <div class="eyebrow">Добавить слово</div>
       <label class="f">Номер этапа</label>
       <input type="text" id="stageNum" placeholder="например: 1">
