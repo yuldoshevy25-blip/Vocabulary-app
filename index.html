@@ -435,6 +435,34 @@ function copyStage(){
     fb.textContent = err.message; fb.className='feedback wrong';
   });
 }
+  function bulkAddWords(){
+  const stageNum = document.getElementById('stageNum').value.trim();
+  const raw = document.getElementById('bulkText').value;
+  const fb = document.getElementById('bulkFeedback');
+  if(!stageNum){ fb.textContent="Укажите номер этапа"; fb.className='feedback wrong'; return; }
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if(lines.length === 0){ fb.textContent="Список пуст"; fb.className='feedback wrong'; return; }
+  const newWords = lines.map(line => {
+    const parts = line.split('|').map(p => p.trim());
+    if(parts.length >= 3){
+      return {term: parts[0], term2: parts[1], answer: parts[2]};
+    } else {
+      return {term: parts[0], term2: '', answer: parts[1] || ''};
+    }
+  }).filter(w => w.term && w.answer);
+
+  if(newWords.length === 0){ fb.textContent="Не удалось распознать слова"; fb.className='feedback wrong'; return; }
+
+  db.collection('stages').doc(stageNum).set({
+    words: firebase.firestore.FieldValue.arrayUnion(...newWords)
+  }, {merge: true}).then(() => {
+    fb.textContent = `Добавлено слов: ${newWords.length}`; fb.className='feedback right';
+    document.getElementById('bulkText').value = '';
+    loadStageWords();
+  }).catch(err => {
+    fb.textContent = err.message; fb.className='feedback wrong';
+  });
+  }
 function loadStudentList(){
   db.collection('students').get().then(snap => {
     if(snap.empty){
